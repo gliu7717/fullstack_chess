@@ -1,10 +1,10 @@
 import './ChessBoard.css';
 import {useEffect, useRef, useState} from 'react';
 import figures from '../images/figures.png'
-import { initChessPieces,getPiece,getGrid } from './ChessPiece'; 
+import { getPiece,getGrid } from './ChessPiece'; 
 import { validMove } from '../Utils/ValidMove';
-import { captureCheck } from '../Utils/CaptureCheck';
 import { initMoveHistory,addMove } from './ChessMove';
+import { initChessBoard } from '../Utils/InitBoard';
 
 var image = new Image();
 image.src = figures;
@@ -21,25 +21,29 @@ var selectedPiece = null
 const ChessBoard = () => {
     const canvasRef = useRef(null);
     const contextRef = useRef(null);
-    const [whitePieces, setWhitePieces] = useState(initChessPieces(WHITEPIECE))
-    const [blackPieces, setBlackPieces] = useState(initChessPieces(BLACKPIECE))
     const [moveHistory, setMoveHistory] = useState(initMoveHistory())
+
+    let board = initChessBoard()
+    console.log(board)
 
     useEffect(() => {
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
         contextRef.current = context;
-        draw(blackPieces, whitePieces)
+        if(board === undefined )
+            board = initChessBoard()
+        drawBoard(board)
     },[])
 
-    const draw = (wPieces, bPieces)=>{
+    const drawBoard = (board)=>{
         contextRef.current.clearRect(0, 0, canvasRef.current.width
             , canvasRef.current.height);
-        wPieces.forEach( piece=>{
-            drawPiece(piece)
-        })
-        bPieces.forEach( piece=>{
-            drawPiece(piece)
+        board.forEach( row =>{
+            row.forEach(piece =>{
+                if(piece!==null){
+                    drawPiece(piece)
+                }
+            })
         })
     }
 
@@ -56,7 +60,10 @@ const ChessBoard = () => {
 
     const drawPiece = (piece) =>{
         const figureX = piece.figurePosition * PIECEWIDTH
-        const figureY = piece.color * PIECEHIGHT
+        let color = 1
+        if (piece.name  === piece.name.toLowerCase())
+            color = 0
+        const figureY = color * PIECEHIGHT
         const x = piece.x * PIECEWIDTH + XOFFSET
         const y = piece.y * PIECEWIDTH + XOFFSET
         if(!piece.selected){
@@ -88,12 +95,12 @@ const ChessBoard = () => {
             contextRef.current.strokeRect(x, y, PIECEWIDTH, PIECEHIGHT);
         }
     }
+
     const movePiece = (x,y) =>{
         if(selectedPiece!==null && selectedPiece!==undefined){
             selectedPiece.draggingX = x - PIECEWIDTH/2 
             selectedPiece.draggingY = y - PIECEWIDTH/2 
-            setWhitePieces([...whitePieces])
-            draw(whitePieces, blackPieces)
+            drawBoard(board)
             if(selectedPiece.validMoveGrids &&
                 selectedPiece.selected
              ){
@@ -102,8 +109,6 @@ const ChessBoard = () => {
                  })
              } 
             const grid =getGrid(x,y)
-            console.log(grid)
-            console.log(selectedPiece)
             if(grid!==null && 
                 selectedPiece!==null &&
                 selectedPiece.selected &&
@@ -112,24 +117,26 @@ const ChessBoard = () => {
             }
         }            
     }
+
     const onMouseDown = ({nativeEvent}) => {
         let {x,y} = nativeEvent;
-        selectedPiece = getPiece(x,y, whitePieces)
+        selectedPiece = getPiece(x,y, board)
         if(selectedPiece!==null && selectedPiece!==undefined){
             selectedPiece.selected= true
             movePiece( x,y)
             if(!selectedPiece.validMoveGrids){
-                selectedPiece.validMoveGrids = validMove(selectedPiece, whitePieces,blackPieces)
-                console.log(selectedPiece.validMoveGrids)
+                selectedPiece.validMoveGrids = validMove(selectedPiece, board)
             }
-        }
+        }            
         nativeEvent.preventDefault();
     };
+
     const onMouseMove = ({nativeEvent}) => {
         var {x,y} = nativeEvent;
         movePiece(x,y)
         nativeEvent.preventDefault();
     };
+
     const onMouseUp = ({nativeEvent}) => {
         const {x,y} = nativeEvent;
         if(selectedPiece!==null && selectedPiece!==undefined){
@@ -143,12 +150,10 @@ const ChessBoard = () => {
                     const source = {x:selectedPiece.x,y:selectedPiece.y}
                     addMove(moveHistory, source, grid)
                     console.log(moveHistory)
-                    
+                    board[selectedPiece.y][selectedPiece.x] = null
                     selectedPiece.x = grid.x
                     selectedPiece.y = grid.y
-                    if(captureCheck(selectedPiece,  blackPieces) ){
-                        setBlackPieces([...blackPieces])
-                    }
+                    board[selectedPiece.y][selectedPiece.x] = selectedPiece
                 }
                 else{
                     console.log("Invalid move to ", grid)
