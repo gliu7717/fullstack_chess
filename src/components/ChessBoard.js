@@ -5,6 +5,7 @@ import { getPiece,getGrid } from './ChessPiece';
 import { validMove } from '../Utils/ValidMove';
 import { initMoveHistory,addMove } from './ChessMove';
 import { initChessBoard } from '../Utils/InitBoard';
+import { toFenString } from '../Utils/FenUtils';
 
 var image = new Image();
 image.src = figures;
@@ -154,6 +155,8 @@ const ChessBoard = () => {
                     selectedPiece.x = grid.x
                     selectedPiece.y = grid.y
                     board[selectedPiece.y][selectedPiece.x] = selectedPiece
+                    const fen = toFenString(board)
+                    console.log(fen)
                 }
                 else{
                     console.log("Invalid move to ", grid)
