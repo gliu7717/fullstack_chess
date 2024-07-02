@@ -3,9 +3,10 @@ import {useEffect, useRef, useState} from 'react';
 import figures from '../images/figures.png'
 import { getPiece,getGrid } from './ChessPiece'; 
 import { validMove } from '../Utils/ValidMove';
-import { initMoveHistory,addMove } from './ChessMove';
+import { initMoveHistory,addMove,toBoardCoordination } from './ChessMove';
 import { initChessBoard } from '../Utils/InitBoard';
 import { toFenString } from '../Utils/FenUtils';
+import axios from "axios";
 
 var image = new Image();
 image.src = figures;
@@ -18,23 +19,21 @@ const XOFFSET =28
 const MARGIN_LEFT = 20
 const MARGIN_TOP = 50
 var selectedPiece = null
+var myTurn = true
 
 const ChessBoard = () => {
     const canvasRef = useRef(null);
     const contextRef = useRef(null);
     const [moveHistory, setMoveHistory] = useState(initMoveHistory())
-
-    let board = initChessBoard()
-    console.log(board)
-
+    const [board, setBoard] = useState(initChessBoard())
+    
     useEffect(() => {
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
         contextRef.current = context;
-        if(board === undefined )
-            board = initChessBoard()
+        console.log("redrawing board", board)
         drawBoard(board)
-    },[])
+    },[board])
 
     const drawBoard = (board)=>{
         contextRef.current.clearRect(0, 0, canvasRef.current.width
@@ -97,6 +96,17 @@ const ChessBoard = () => {
         }
     }
 
+    const moveOpponentPiece =( uciMove) =>{
+        const {source,dest} = toBoardCoordination(uciMove)
+        let newBoard = [...board]
+        let sourcePiece =  newBoard [source.y][source.x]
+        sourcePiece.x = dest.x
+        sourcePiece.y = dest.y
+        newBoard[dest.y][dest.x] = sourcePiece
+        newBoard [source.y][source.x] = null
+        setBoard(newBoard)
+    }
+
     const movePiece = (x,y) =>{
         if(selectedPiece!==null && selectedPiece!==undefined){
             selectedPiece.draggingX = x - PIECEWIDTH/2 
@@ -120,6 +130,10 @@ const ChessBoard = () => {
     }
 
     const onMouseDown = ({nativeEvent}) => {
+        if(!myTurn){
+            selectedPiece=null
+            return
+        }
         let {x,y} = nativeEvent;
         selectedPiece = getPiece(x,y, board)
         if(selectedPiece!==null && selectedPiece!==undefined){
@@ -133,13 +147,23 @@ const ChessBoard = () => {
     };
 
     const onMouseMove = ({nativeEvent}) => {
-        var {x,y} = nativeEvent;
-        movePiece(x,y)
+        if(myTurn){
+            var {x,y} = nativeEvent;
+            movePiece(x,y)    
+        }
+        else
+            selectedPiece=null
         nativeEvent.preventDefault();
     };
 
     const onMouseUp = ({nativeEvent}) => {
+        if(!myTurn){
+            selectedPiece=null
+            return
+        }
+
         const {x,y} = nativeEvent;
+        var fen = null
         if(selectedPiece!==null && selectedPiece!==undefined){
             selectedPiece.selected= false
             const grid =getGrid(x,y)
@@ -151,11 +175,14 @@ const ChessBoard = () => {
                     const source = {x:selectedPiece.x,y:selectedPiece.y}
                     addMove(moveHistory, source, grid)
                     console.log(moveHistory)
-                    board[selectedPiece.y][selectedPiece.x] = null
+                    let newBoard = [...board]
+                    newBoard[selectedPiece.y][selectedPiece.x] = null
                     selectedPiece.x = grid.x
                     selectedPiece.y = grid.y
-                    board[selectedPiece.y][selectedPiece.x] = selectedPiece
-                    const fen = toFenString(board)
+                    newBoard[selectedPiece.y][selectedPiece.x] = selectedPiece
+                    setBoard(newBoard)
+                    myTurn = false
+                    fen = toFenString(newBoard)
                     console.log(fen)
                 }
                 else{
@@ -163,11 +190,23 @@ const ChessBoard = () => {
                 }
             }
             selectedPiece.validMoveGrids = null
-            movePiece( x,y)
             selectedPiece=null
+            if(fen!== null){
+                var fenData = {
+                    fen
+                }
+                axios.post("/", fenData).then((response) => {
+                    console.log(response.status, response.data);
+                    moveOpponentPiece(response.data)
+                    myTurn = true
+                });    
+            }
+            
+
         }
         nativeEvent.preventDefault();
     };
+
     const onMouseLeave = ({nativeEvent}) => {
         const {offsetX, offsetY} = nativeEvent;
         nativeEvent.preventDefault();

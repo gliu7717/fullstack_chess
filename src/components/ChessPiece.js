@@ -7,7 +7,7 @@ const MARGIN_TOP = 50
 export const getPiece = (px,py, board) =>{
     const x = Math.floor((px -XOFFSET -MARGIN_LEFT) / PIECEWIDTH )
     const y = Math.floor((py -XOFFSET -MARGIN_TOP) / PIECEWIDTH )
-    if(x >=0 && x <8  && y >=0 && y <8)
+    if(x >=0 && x <8  && y >=0 && y <8 && board[y][x].name !== board[y][x].name.toLowerCase())
         return board[y][x]
     return null
 }
