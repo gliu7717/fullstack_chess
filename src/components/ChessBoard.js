@@ -1,5 +1,7 @@
 import './ChessBoard.css';
 import {useEffect, useRef, useState} from 'react';
+import { io } from 'socket.io-client';
+
 import figures from '../images/figures.png'
 import { getPiece,getGrid } from './ChessPiece'; 
 import { validMove } from '../Utils/ValidMove';
@@ -21,12 +23,17 @@ const MARGIN_TOP = 50
 var selectedPiece = null
 var myTurn = true
 
+const socket = io('http://localhost:8000/', { transports : ['websocket'] });
+
 const ChessBoard = () => {
     const canvasRef = useRef(null);
     const contextRef = useRef(null);
     const [moveHistory, setMoveHistory] = useState(initMoveHistory())
     const [board, setBoard] = useState(initChessBoard())
-    
+    useEffect(() => {
+        connectChessServer()        
+    },[])
+
     useEffect(() => {
         const canvas = canvasRef.current;
         const context = canvas.getContext("2d");
@@ -34,7 +41,22 @@ const ChessBoard = () => {
         console.log("redrawing board", board)
         drawBoard(board)
     },[board])
-
+    const connectChessServer = () =>{
+        const name = "table-1-w"
+        socket.on('connect', () => {
+            console.log(`table-1-w connected!`);
+        });    
+        socket.on('nextmove', data => {
+            console.log(data);
+            moveOpponentPiece(data)
+            myTurn = true
+        });
+        socket.emit("table-1-w", `connected table-1-w!`);
+        socket.on('disconnect', () => {
+            console.log(`{$name} disconnected!`);
+        });
+    }
+    
     const drawBoard = (board)=>{
         contextRef.current.clearRect(0, 0, canvasRef.current.width
             , canvasRef.current.height);
@@ -97,9 +119,17 @@ const ChessBoard = () => {
     }
 
     const moveOpponentPiece =( uciMove) =>{
+        console.log(uciMove)
         const {source,dest} = toBoardCoordination(uciMove)
+        console.log(source,dest)
         let newBoard = [...board]
         let sourcePiece =  newBoard [source.y][source.x]
+        if(sourcePiece=== null){
+            console.log("source piece is null")
+            return
+        }
+        console.log(newBoard)
+        console.log(sourcePiece)
         sourcePiece.x = dest.x
         sourcePiece.y = dest.y
         newBoard[dest.y][dest.x] = sourcePiece
@@ -173,7 +203,8 @@ const ChessBoard = () => {
                 if(selectedPiece.validMoveGrids.
                     find(v => v.x===grid.x && v.y === grid.y )){
                     const source = {x:selectedPiece.x,y:selectedPiece.y}
-                    addMove(moveHistory, source, grid)
+                    const myMove = addMove(moveHistory, source, grid)
+                    //socket.emit("table-1-w", myMove);
                     console.log(moveHistory)
                     let newBoard = [...board]
                     newBoard[selectedPiece.y][selectedPiece.x] = null
@@ -191,6 +222,7 @@ const ChessBoard = () => {
             }
             selectedPiece.validMoveGrids = null
             selectedPiece=null
+/*            
             if(fen!== null){
                 var fenData = {
                     fen
@@ -200,9 +232,8 @@ const ChessBoard = () => {
                     moveOpponentPiece(response.data)
                     myTurn = true
                 });    
-            }
-            
-
+            } 
+*/
         }
         nativeEvent.preventDefault();
     };

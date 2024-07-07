@@ -8,7 +8,7 @@ export const initMoveHistory = ()=>{
 }
 
 const toUCI = (source)=>{
-    return String.fromCharCode(65 + source.x, 49 + (7 - source.y))
+    return String.fromCharCode(97 + source.x, 49 + (7 - source.y))
 }
 export const toBoardCoordination = (uci)=>{
     const source={
@@ -29,4 +29,5 @@ export const addMove = (moveHistory, source, dest)=>{
     }
     moveHistory.moves.push(move)
     moveHistory.uci = moveHistory.uci + " " + toUCI (source) + toUCI(dest)
+    return toUCI (source) + toUCI(dest)
 }
